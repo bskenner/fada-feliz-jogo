@@ -28,7 +28,9 @@ No celular ou tablet, use os botões na tela (esquerda/direita, magia e voar).
 
 ## Objetivo
 
-Colete flores, evite (ou derrote) os insetos e alcance o portal florido no fim do jardim. Você tem 3 vidas. Cair no buraco ou encostar em um inseto custa uma vida; ao perder todas, é possível recomeçar.
+Colete flores, evite (ou derrote) os insetos e alcance o portal florido no fim do jardim. Você tem **2 vidas**. Cair no buraco ou encostar em um inseto custa uma vida; ao perder as duas, é fim de jogo (Enter recomeça).
+
+No meio da fase há um **dente mágico**. Pegue-o para virar **Super Fada** (aura dourada e coroa): o próximo golpe não tira uma vida — você volta à forma normal — e a magia fica mais forte.
 
 ## Arquivos
 
