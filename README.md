@@ -19,7 +19,7 @@ O app no Replit recebeu o nome automático *FrontPettyAggregator*, mas o jogo se
 | Tecla | Ação |
 | --- | --- |
 | ← → | Correr. Segure para ganhar velocidade; ao soltar, a fada ainda desliza um pouco. |
-| ↑ | Bater as asas. Cada toque dá um impulso; toque várias vezes para subir ou planar. |
+| ↑ | Bater as asas. Cada toque dá um impulso; toque várias vezes para subir ou planar. As asas cansam no ar (5 batidas) e o fôlego volta ao aterrissar. |
 | Espaço | Lançar um encanto (projétil) que derrota os insetos espinhosos. |
 | P ou Esc | Pausar ou continuar. |
 | Enter | Começar, continuar ou jogar de novo. |

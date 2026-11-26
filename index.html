@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
   <title>Fada Feliz</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23ff6fa5'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23ffd84d'/%3E%3C/svg%3E" />
   <meta name="description" content="Fada Feliz: corra, voe e lance magia por um jardim encantado até o portal." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +35,7 @@
       position: relative; width: 100%; aspect-ratio: 1200 / 620;
       border-radius: 28px; overflow: hidden; background: #bfe9e0;
       box-shadow: 0 20px 50px -20px rgba(170,50,110,.45);
-      ring: 4px; outline: 4px solid rgba(255,255,255,.8);
+      outline: 4px solid rgba(255,255,255,.8);
     }
     canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
     .hud {
@@ -138,6 +139,7 @@
       <div class="hud hide" id="hud">
         <div class="chips">
           <div class="chip" id="lives">❤ ❤ ❤</div>
+          <div class="chip" id="stamina" title="Asas">✦ ✦ ✦ ✦ ✦</div>
           <div class="chip" id="flowers">✿ 0</div>
           <div class="chip" id="time">⏱ 0:00</div>
         </div>
@@ -168,12 +170,13 @@
   <script>
 
 (function () {
-  const VIEW_WIDTH = 1200, VIEW_HEIGHT = 620, WORLD_WIDTH = 6200, PORTAL_X = 6000, PORTAL_Y = 510;
+  const VIEW_WIDTH = 1200, VIEW_HEIGHT = 620, WORLD_WIDTH = 6200, PORTAL_X = 6000, PORTAL_Y = 510, MAX_STAMINA = 5;
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const overlay = document.getElementById('overlay');
   const hudEl = document.getElementById('hud');
   const livesEl = document.getElementById('lives');
+  const staminaEl = document.getElementById('stamina');
   const flowersEl = document.getElementById('flowers');
   const timeEl = document.getElementById('time');
   const progEl = document.getElementById('prog');
@@ -217,26 +220,37 @@
 
   class GameEngine {
     constructor() {
-      this.state = { mode: 'start', player: makePlayer(), camera: 0, flowers: 0, lives: 3, elapsed: 0, time: 0, ...makeLevel(), shots: [], particles: [] };
-      this.held = new Set(); this.cooldown = 0; this.checkpoint = 110; this.accumulator = 0;
+      this.state = { mode: 'start', player: makePlayer(), camera: 0, flowers: 0, lives: 3, stamina: MAX_STAMINA, elapsed: 0, time: 0, ...makeLevel(), shots: [], particles: [] };
+      this.held = new Set(); this.cooldown = 0; this.castQueued = false; this.checkpoint = 110; this.accumulator = 0;
     }
     start() {
-      Object.assign(this.state, { mode: 'playing', player: makePlayer(), camera: 0, flowers: 0, lives: 3, elapsed: 0, time: 0, ...makeLevel(), shots: [], particles: [] });
-      this.held.clear(); this.checkpoint = 110; this.cooldown = 0; this.accumulator = 0;
+      Object.assign(this.state, { mode: 'playing', player: makePlayer(), camera: 0, flowers: 0, lives: 3, stamina: MAX_STAMINA, elapsed: 0, time: 0, ...makeLevel(), shots: [], particles: [] });
+      this.held.clear(); this.checkpoint = 110; this.cooldown = 0; this.castQueued = false; this.accumulator = 0;
     }
     pause() {
       if (this.state.mode === 'playing') this.state.mode = 'paused';
       else if (this.state.mode === 'paused') this.state.mode = 'playing';
       this.held.clear();
     }
+    fireCast() {
+      const p = this.state.player;
+      this.state.shots.push({ x: p.x + p.w / 2 + p.facing * 24, y: p.y + 24, vx: p.facing * 650 + p.vx * 0.3, life: 1.2 });
+      this.cooldown = 0.22; this.castQueued = false;
+      this.burst(p.x + p.w / 2 + p.facing * 26, p.y + 24, '#ffdc7e', 4);
+    }
     press(control) {
       if (this.state.mode !== 'playing' || this.held.has(control)) return;
       this.held.add(control);
       const p = this.state.player;
-      if (control === 'flap') { p.vy = Math.max(-460, p.vy - 270); p.grounded = false; p.flap = 0.24; this.burst(p.x + p.w / 2, p.y + 30, '#d6b7ff', 6); }
-      if (control === 'cast' && this.cooldown <= 0) {
-        this.state.shots.push({ x: p.x + p.w / 2 + p.facing * 24, y: p.y + 24, vx: p.facing * 650 + p.vx * 0.3, life: 1.2 });
-        this.cooldown = 0.22; this.burst(p.x + p.w / 2 + p.facing * 26, p.y + 24, '#ffdc7e', 4);
+      if (control === 'flap') {
+        if (this.state.stamina < 1) return;
+        this.state.stamina -= 1;
+        p.vy = Math.max(-460, p.vy - 270); p.grounded = false; p.flap = 0.24;
+        this.burst(p.x + p.w / 2, p.y + 30, '#d6b7ff', 6);
+      }
+      if (control === 'cast') {
+        if (this.cooldown <= 0) this.fireCast();
+        else this.castQueued = true;
       }
     }
     release(control) { this.held.delete(control); }
@@ -247,7 +261,7 @@
       }
     }
     loseLife() {
-      const s = this.state; s.lives--; s.shots = []; this.held.clear();
+      const s = this.state; s.lives--; s.shots = []; s.stamina = MAX_STAMINA; this.held.clear(); this.castQueued = false;
       if (s.lives <= 0) { s.mode = 'over'; return; }
       s.player = { ...makePlayer(), x: this.checkpoint, invulnerable: 2 };
       s.camera = clamp(this.checkpoint - 260, 0, WORLD_WIDTH - VIEW_WIDTH);
@@ -266,8 +280,10 @@
     step(dt) {
       const s = this.state, p = s.player;
       s.elapsed += dt; this.cooldown -= dt;
+      if (this.castQueued && this.cooldown <= 0) this.fireCast();
       p.invulnerable = Math.max(0, p.invulnerable - dt);
       p.flap = Math.max(0, p.flap - dt);
+      if (p.grounded) s.stamina = Math.min(MAX_STAMINA, s.stamina + 6 * dt);
       const axis = Number(this.held.has('right')) - Number(this.held.has('left'));
       if (axis) { p.vx = clamp(p.vx + axis * (p.grounded ? 850 : 600) * dt, -470, 470); p.facing = axis > 0 ? 1 : -1; }
       else { const drag = (p.grounded ? 380 : 65) * dt; p.vx = Math.sign(p.vx) * Math.max(0, Math.abs(p.vx) - drag); }
@@ -325,7 +341,7 @@
       s.particles = s.particles.filter(particle => particle.life > 0);
       const target = clamp(p.x - VIEW_WIDTH * 0.3, 0, WORLD_WIDTH - VIEW_WIDTH);
       s.camera += (target - s.camera) * (1 - Math.exp(-7 * dt));
-      if (Math.abs(p.x + p.w / 2 - 6000) < 65 && p.y + p.h > 370) { s.mode = 'won'; this.held.clear(); this.burst(6000, 420, '#ffd777', 35); }
+      if (p.x + p.w / 2 >= 6000 - 65 && p.y + p.h > 370) { s.mode = 'won'; this.held.clear(); this.burst(6000, 420, '#ffd777', 35); }
     }
   }
 
@@ -538,7 +554,7 @@
       c.globalAlpha = a; c.fillStyle = p.color; c.beginPath(); c.arc(p.x - cam, p.y, 2 + a * 3, 0, Math.PI * 2); c.fill();
     }
     c.globalAlpha = 1;
-    const pl = s.player, blink = pl.invulnerable > 0 && Math.floor(t * 14) % 2 === 0;
+    const pl = s.player, blink = pl.invulnerable > 0 && Math.floor(t * 10) % 3 === 0;
     if (!blink) {
       c.fillStyle = 'rgba(80,30,80,0.15)'; c.beginPath(); c.ellipse(pl.x + pl.w / 2 - cam, pl.y + pl.h + 2, 14, 4, 0, 0, Math.PI * 2); c.fill();
       drawFairy(c, pl.x + pl.w / 2 - cam, pl.y + pl.h, pl.facing, t, { vx: pl.vx, vy: pl.vy, flap: pl.flap, grounded: pl.grounded });
@@ -559,6 +575,7 @@
   }
 
   function hearts(n) { return n > 0 ? Array.from({ length: n }, () => '❤').join(' ') : '0'; }
+  function wings(n) { return Array.from({ length: MAX_STAMINA }, (_, i) => i < Math.floor(n) ? '✦' : '·').join(' '); }
 
   function renderOverlay() {
     const s = engine.state, mode = s.mode;
@@ -568,6 +585,7 @@
     btnPause.title = mode === 'paused' ? 'Continuar' : 'Pausar';
     touch.classList.toggle('show', mode === 'playing');
     livesEl.textContent = hearts(s.lives);
+    if (staminaEl) staminaEl.textContent = wings(s.stamina);
     flowersEl.textContent = '✿ ' + s.flowers + ' / ' + s.blooms.length;
     timeEl.textContent = '⏱ ' + fmt(Math.floor(s.elapsed));
     progEl.style.width = (Math.min(1, Math.max(0, s.player.x / 6000)) * 100) + '%';
@@ -594,7 +612,7 @@
           <li><span><kbd>Espaço</kbd></span> Lançar magia nos insetos.</li>
           <li><span><kbd>P</kbd></span> Pausar ou continuar.</li>
         </ul>
-        <p class="hint">Colha flores pelo caminho e alcance o portal no fim do jardim.</p>
+        <p class="hint">As asas cansam no ar — aterrisse para recuperar o fôlego. Colha flores e alcance o portal no fim do jardim.</p>
         <div class="actions"><button class="soft" id="goBack">Voltar</button><button class="big" id="goPlay">▶ Jogar</button></div>
       </div>`;
       document.getElementById('goBack').onclick = () => { showHow = false; lastMode = ''; renderOverlay(); };
@@ -629,6 +647,7 @@
       hudAcc = 0;
       const s = engine.state;
       livesEl.textContent = hearts(s.lives);
+      if (staminaEl) staminaEl.textContent = wings(s.stamina);
       flowersEl.textContent = '✿ ' + s.flowers + ' / ' + s.blooms.length;
       timeEl.textContent = '⏱ ' + fmt(Math.floor(s.elapsed));
       progEl.style.width = (Math.min(1, Math.max(0, s.player.x / 6000)) * 100) + '%';
